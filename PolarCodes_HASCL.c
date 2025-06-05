@@ -1,8 +1,15 @@
+//ignores crypto lib to be able to run example
+//#define IgnoreTomCrypt
+
 #include "PolarCodes_HASCL.h"
 #include "BitHelperFunctions.h"
-#include <tomcrypt.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 #include <math.h>
+#ifndef IgnoreTomCrypt
+	#include <tomcrypt.h>
+#endif
 
 static uint16_t N = 1024;
 #define NBytes (N/8)
@@ -19,15 +26,20 @@ static uint8_t* SHA1_Hash(uint8_t const*const Values, uint16_t const ByteLength)
 {
 	int idx, err;
 
-	if (register_hash(&sha1_desc) == -1) return 0;
-	idx = find_hash("sha1");
+	#ifndef IgnoreTomCrypt
+		if (register_hash(&sha1_desc) == -1) return 0;
+		idx = find_hash("sha1");
+	#endif
 
 	uint8_t* Hash = malloc(SHA1_ByteLength);
 	uint16_t OutLen = SHA1_ByteLength;
-	if ((err = hash_memory(idx, Values, ByteLength, Hash, &OutLen)) != CRYPT_OK || OutLen != SHA1_ByteLength) {
-		free(Hash);
-		return 0;
-	}
+
+	#ifndef IgnoreTomCrypt
+		if ((err = hash_memory(idx, Values, ByteLength, Hash, &OutLen)) != CRYPT_OK || OutLen != SHA1_ByteLength) {
+			free(Hash);
+			return 0;
+		}
+	#endif
 
 	return Hash;
 }
@@ -47,16 +59,26 @@ uint8_t *PLC_Reproduce(
 	uint8_t const *const FrozenBitMask, uint16_t const FrozenBitMaskLength,
 	uint8_t const *const ValidationHash, uint16_t const ValidationHashLength)
 {
+	#ifdef IgnoreTomCrypt
+		return 0; //no crypto lib -> hash aid to decide on decoder output wont work!
+	#endif
 	if(Fingerprint == 0 || FingerprintLength < NBytes) return 0;
 	if(HelperData == 0 || HelperDataSize == 0) return 0;
 	if(FrozenBitMask == 0 || FrozenBitMaskLength != NBytes) return 0;
 	if(ValidationHash == 0 || ValidationHashLength != SHA1_ByteLength) return 0;
 
-	//encode
-	uint8_t* CodeWord = PLC_Encode(Fingerprint, FingerprintLength, FrozenBitMask, FrozenBitMaskLength);
-	if(CodeWord == 0) return 0;
+	//apply frozen bit mask
+	uint8_t* MaskedFingerprint = malloc(NBytes);
+	for(uint16_t i = 0; i < NBytes; i++)
+	{
+		MaskedFingerprint[i] = Fingerprint[i] & FrozenBitMask[i];
+	}
 
-	SendDebug(Fingerprint, 20);
+	//encode
+	uint8_t* CodeWord = PLC_Encode(MaskedFingerprint, NBytes);
+
+	free(MaskedFingerprint); MaskedFingerprint = 0;
+	if(CodeWord == 0) return 0;
 
 	//apply helper data
 	for(uint16_t i = 0, HDIndex = 0; i < N && (HDIndex / 8) < HelperDataSize; i++)
@@ -109,7 +131,7 @@ uint8_t *PLC_Reproduce(
 	if(RecoveredFingerprint == 0) return 0;
 
 	//encode
-	CodeWord = PLC_Encode(RecoveredFingerprint, NBytes, FrozenBitMask, FrozenBitMaskLength);
+	CodeWord = PLC_Encode(RecoveredFingerprint, NBytes);
 	free(RecoveredFingerprint); RecoveredFingerprint = 0;
 
 	//extract raw key
@@ -132,23 +154,12 @@ uint8_t *PLC_Reproduce(
 }
 
 // --- ENCODE --- //
-uint8_t *PLC_Encode(uint8_t const *const Fingerprint,
-					  uint16_t const FingerprintLength,
-					  uint8_t const *const FrozenBitMask,
-					  uint16_t const FrozenBitMaskLength)
+uint8_t *PLC_Encode(uint8_t const *const Input, uint16_t const InputLength)
 {
-	if(Fingerprint == 0 || FingerprintLength < NBytes) return 0;
-	if(FrozenBitMask == 0 || FrozenBitMaskLength != NBytes) return 0;
+	if(Input == 0 || InputLength < NBytes) return 0;
 
-	//Copy only non frozen bits into working array (frozen bits -> 0)
-	uint8_t* Values = calloc(NBytes, sizeof(uint8_t));
-	for(uint16_t i = 0; i < N; i++)
-	{
-		if(GetBitAtIndex(FrozenBitMask, i))
-		{
-			SetBitAtIndex(Values, i, GetBitAtIndex(Fingerprint, i));
-		}
-	}
+	uint8_t* Values = malloc(NBytes);
+	memcpy(Values, Input, NBytes);
 
 	for (uint16_t m = 1; m < N; m *= 2)
 	{

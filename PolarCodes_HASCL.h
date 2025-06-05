@@ -5,8 +5,7 @@
 /*  This is a Polar Code encoder + successive cancellation list decoder optimized for memory usage 
 *   and is based on the tutorial series "LDPC and Polar Codes in 5G Standard" by NPTEL-NOC IITM.
 *   https://youtube.com/playlist?list=PLyqSpQzTE6M81HJ26ZaNv0V3ROBrcv-Kc
-*   The initial use case was the reconstruction of a key from an SRAM fingerprint on a microcontroller. 
-*   Due to this, the encoder removes all values at frozen positions!!
+*   The initial use case was the reconstruction of a key from an SRAM fingerprint on a microcontroller.
 *   
 *   This code is distributed as is. Use at your own risk.
 *   
@@ -39,19 +38,16 @@ uint8_t* PLC_Reproduce(uint8_t const*const Fingerprint, uint16_t const _Fingerpr
                        uint8_t const*const FrozenBitMask, uint16_t const _FrozenBitMaskLength,
                        uint8_t const*const ValidationHash, uint16_t const _ValidationHashLength);
 
-/// @brief Encodes a given plain text. Frozen bits are set to 0 (indicates by FrozenBitMask) -> plain text cannot be reconstructed.
+/// @brief Encodes a given plain text. The frozen bit mask (reliability sequence) has to be applied beforehand.
 /// @param Input Plain text to encode. Only first N bits are used.
 /// @param InputLength Length of input (in bytes).
-/// @param FrozenBitMask Mask, which indicates which bits are frozen.
-/// @param FrozenBitMaskLength Mask length (in bytes).
-/// @return Encoded word, with length N. Contains K codeword bits. Nullptr on error.
-uint8_t* PLC_Encode(uint8_t const*const Input, uint16_t const InputLength, 
-                    uint8_t const*const FrozenBitMask, uint16_t const FrozenBitMaskLength);
-
+/// @return Encoded word, with length N. Nullptr on error.
+uint8_t* PLC_Encode(uint8_t const*const Input, uint16_t const InputLength);
+                   
 /// @brief Successive cancellation list decoder. Decodes a given encoded word.
 /// @param Input Encoded word. Only first N bits are used.
 /// @param InputLength Length of input (in bytes).
-/// @param FrozenBitMask Mask, which indicates which bits are frozen.
+/// @param FrozenBitMask Mask, which indicates which bits are frozen (-> usually indicated by a reliability sequence).
 /// @param FrozenBitMaskLength Mask length (in bytes).
 /// @return A list (of length NumberOfDecoders) of possible decoded plain texts (with length N). Nullptr on error.
 uint8_t **PLC_SCL_Decode(uint8_t const*const Input, uint16_t const InputLength, 

@@ -3,9 +3,9 @@
 This is a Polar Code encoder + successive cancellation list decoder optimized for memory usage and is based on the tutorial series ["LDPC and Polar Codes in 5G Standard" by NPTEL-NOC IITM](https://youtube.com/playlist?list=PLyqSpQzTE6M81HJ26ZaNv0V3ROBrcv-Kc).
 
 The initial use case was the reconstruction of a key from an SRAM fingerprint on a microcontroller.
-Due to this, the encoder removes all values at frozen positions!!
 
 This code is distributed as is. Use at your own risk.
+An example usage can be found in `example.c`.
 
 ## Notes
 
